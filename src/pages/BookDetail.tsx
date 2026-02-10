@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, BookOpen, MessageCircle, Calendar, Send, X } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, BookOpen, MessageCircle, Calendar, Send, X, Trash2, AlertTriangle } from 'lucide-react';
 import gsap from 'gsap';
 import { recentBooks, featuredBook } from '@/data/books';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,13 +19,16 @@ interface Owner {
 // Mock owners for each book
 const mockOwners: Record<string, Owner[]> = {
   '1': [
+    { id: 'current-user', name: 'Alex Reader', avatar: '/avatar_jonas.jpg', distance: '0 mi', rating: 4.9, condition: 'Like new', available: true },
     { id: 'priya-user', name: 'Priya', avatar: '/avatar_priya.jpg', distance: '0.8 mi', rating: 4.9, condition: 'Like new', available: true },
     { id: 'maya-user', name: 'Maya', avatar: '/avatar_maya.jpg', distance: '1.2 mi', rating: 4.7, condition: 'Very good', available: true },
   ],
   '2': [
+    { id: 'current-user', name: 'Alex Reader', avatar: '/avatar_jonas.jpg', distance: '0 mi', rating: 4.9, condition: 'Like new', available: true },
     { id: 'jonas-user', name: 'Jonas', avatar: '/avatar_jonas.jpg', distance: '1.5 mi', rating: 4.8, condition: 'Good', available: true },
   ],
   '3': [
+    { id: 'current-user', name: 'Alex Reader', avatar: '/avatar_jonas.jpg', distance: '0 mi', rating: 4.9, condition: 'Very good', available: false },
     { id: 'priya-user', name: 'Priya', avatar: '/avatar_priya.jpg', distance: '0.8 mi', rating: 4.9, condition: 'Like new', available: false },
   ],
   '4': [
@@ -50,11 +53,16 @@ export default function BookDetail() {
   const [requestSent, setRequestSent] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingOwner, setPendingOwner] = useState<Owner | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [bookDeleted, setBookDeleted] = useState(false);
 
   // Find the book
   const allBooks = [featuredBook, ...recentBooks];
   const book = allBooks.find(b => b.id === id) || featuredBook;
   const owners = mockOwners[id || '1'] || mockOwners['1'];
+  
+  // Check if current user is an owner of this book
+  const isOwner = user && owners.some(owner => owner.id === user.id);
 
   useEffect(() => {
     // Page entrance animation
@@ -100,6 +108,15 @@ export default function BookDetail() {
         setMessage('');
       }, 2000);
     }
+  };
+
+  const handleDeleteBook = () => {
+    // In a real app, this would call an API to remove the book listing
+    setBookDeleted(true);
+    setTimeout(() => {
+      setShowDeleteModal(false);
+      navigate('/profile');
+    }, 1500);
   };
 
   return (
@@ -180,6 +197,27 @@ export default function BookDetail() {
                 </div>
               )}
 
+              {/* Owner Management - Only visible to book owner */}
+              {isOwner && (
+                <div className="mb-10 p-4 bg-cranberry/5 border border-cranberry/20 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-display text-base font-semibold text-espresso mb-1">
+                        Manage your listing
+                      </h3>
+                      <p className="text-sm text-taupe">You are sharing this book with the community</p>
+                    </div>
+                    <button
+                      onClick={() => setShowDeleteModal(true)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all border border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove from sharing
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Owners List */}
               <div>
                 <h3 className="font-display text-lg font-semibold text-espresso mb-4">
@@ -187,7 +225,10 @@ export default function BookDetail() {
                 </h3>
                 
                 <div className="space-y-4">
-                  {owners.map((owner) => (
+                  {owners.map((owner) => {
+                    const isCurrentUserListing = user && owner.id === user.id;
+                    
+                    return (
                     <div
                       key={owner.id}
                       className="flex items-center gap-4 p-4 bg-white rounded-xl border border-espresso/5 hover:border-cranberry/20 hover:shadow-paper transition-all"
@@ -211,6 +252,11 @@ export default function BookDetail() {
                           >
                             {owner.name}
                           </button>
+                          {isCurrentUserListing && (
+                            <span className="text-xs bg-cranberry/10 text-cranberry px-2 py-0.5 rounded-full">
+                              You
+                            </span>
+                          )}
                           <span className="flex items-center gap-1 text-xs text-amber-500">
                             <Star className="w-3 h-3 fill-amber-500" />
                             {owner.rating}
@@ -231,7 +277,9 @@ export default function BookDetail() {
                         </div>
                       </div>
 
-                      {owner.available ? (
+                      {isCurrentUserListing ? (
+                        <span className="text-xs text-taupe">Your copy</span>
+                      ) : owner.available ? (
                         <button
                           onClick={() => handleRequest(owner)}
                           className="px-4 py-2 rounded-lg text-sm font-medium transition-all btn-primary"
@@ -245,7 +293,7 @@ export default function BookDetail() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
             </div>
@@ -345,6 +393,86 @@ export default function BookDetail() {
         }} 
         defaultMode="login"
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-espresso/60 backdrop-blur-sm"
+            onClick={() => !bookDeleted && setShowDeleteModal(false)}
+          />
+          
+          <div className="relative w-full max-w-md bg-paper rounded-2xl shadow-paper-lg overflow-hidden">
+            {bookDeleted ? (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="font-display text-xl font-semibold text-espresso mb-2">
+                  Book removed
+                </h3>
+                <p className="text-taupe">
+                  Your listing has been removed from BookSwap.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between p-4 border-b border-espresso/10">
+                  <h3 className="font-display text-lg font-semibold text-espresso">
+                    Remove from sharing?
+                  </h3>
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-espresso/10 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-espresso" />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <div className="flex items-start gap-4 mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-amber-800 font-medium mb-1">This action cannot be undone</p>
+                      <p className="text-xs text-amber-700">
+                        Removing this book will make it unavailable for other users to discover or request.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-6 p-3 bg-white rounded-xl border border-espresso/10">
+                    <img
+                      src={book.cover}
+                      alt={book.title}
+                      className="w-12 h-16 object-cover rounded"
+                    />
+                    <div>
+                      <p className="font-medium text-espresso text-sm">{book.title}</p>
+                      <p className="text-xs text-taupe">{book.author}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowDeleteModal(false)}
+                      className="flex-1 py-3 rounded-lg text-sm font-medium border border-espresso/20 text-espresso hover:bg-espresso/5 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteBook}
+                      className="flex-1 py-3 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove book
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
